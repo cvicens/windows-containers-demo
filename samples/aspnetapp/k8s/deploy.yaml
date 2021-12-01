@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aspnetapp
+  labels:
+    app: aspnetapp
+spec:
+  ports:
+    # the port that this service should serve on
+  - port: 80
+    targetPort: 80
+  selector:
+    app: aspnetapp
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: aspnetapp
+  name: aspnetapp
+spec:
+  selector:
+    matchLabels:
+      app: aspnetapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: aspnetapp
+      name: aspnetapp
+    spec:
+      tolerations:
+      - key: "os"
+        value: "Windows"
+        Effect: "NoSchedule"
+      containers:
+      - name: windowswebserver
+        image: quay.io/cvicens/aspnetapp:0.0.1
+        imagePullPolicy: IfNotPresent
+      nodeSelector:
+        beta.kubernetes.io/os: windows
