@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Net.Http;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+
 using System.Web.UI;
-using System.Web.UI.WebControls;
+
 
 namespace aspnetapp
 {
@@ -14,30 +16,80 @@ namespace aspnetapp
         private int _port = 5002;
         private string _uri = "WeatherForecast";
 
+        private readonly HttpClient _httpClient;
+
+
+        private readonly ILogger<About> _logger;
+
+        private static JsonSerializerOptions options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        };
+
+        public About(ILogger<About> logger, HttpClient httpClient)
+        {
+            _logger = logger;
+
+            _httpClient = httpClient;
+
+            if (Environment.GetEnvironmentVariable("BACKEND_HOST") != null)
+            {
+                _host = Environment.GetEnvironmentVariable("BACKEND_HOST");
+            }
+
+            try
+            {
+                _port = Int32.Parse(Environment.GetEnvironmentVariable("BACKEND_PORT"));
+            }
+            catch (ArgumentNullException e)
+            {
+                _logger.LogInformation("BACKEND_PORT is NULL");
+            }
+            catch (Exception e)
+            {
+                _logger.LogError("error => " + e.Message);
+            }
+
+            if (Environment.GetEnvironmentVariable("BACKEND_URI") != null)
+            {
+                _uri = Environment.GetEnvironmentVariable("BACKEND_URI");
+            }
+        }
+
         protected void Page_Load(object sender, EventArgs e)
         {
 
         }
 
-        protected About GetAbout()
+        protected async Task<AboutType> GetAbout()
         {
-            var client = _httpClientFactory.CreateClient();
-            client.BaseAddress = new Uri("http://" + _host + ":" + _port + "/");
-            client.DefaultRequestHeaders.Add("Accept", "application/json");
-            client.DefaultRequestHeaders.Add("User-Agent", "HttpClientFactory-Sample");
+            //var client = _httpClientFactory.CreateClient();
+            _httpClient.BaseAddress = new Uri("http://" + _host + ":" + _port + "/");
+            _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "HttpClientFactory-Sample");
 
-            var response = await client.GetAsync(_uri);
+            var response = await _httpClient.GetAsync(_uri);
 
-            if (!response.IsSuccessStatusCode) {
+            if (!response.IsSuccessStatusCode)
+            {
                 _logger.LogError("Problem when calling client service code: " + response.StatusCode);
             }
 
             response.EnsureSuccessStatusCode();
-            
-            using var responseStream = await response.Content.ReadAsStreamAsync(); 
-           
-            var weatherForecasts = await JsonSerializer.DeserializeAsync<WeatherForecast[]>(responseStream, options);
-            return weatherForecasts;
-        }
+
+            var responseStream = await response.Content.ReadAsStreamAsync();
+
+            var aboutType = await JsonSerializer.DeserializeAsync<AboutType>(responseStream, options);
+            return aboutType;
+            //return null;
+        }   
     }
+}
+
+public class AboutType
+{
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public string Details { get; set; }
 }
